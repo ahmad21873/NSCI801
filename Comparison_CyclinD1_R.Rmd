@@ -1,0 +1,114 @@
+---
+title: "Comparison_CyclinD1_R.Rmd"
+output: html_document
+author: "Ahmad Chahin"
+---
+
+# Load Libraries
+```{r , echo=FALSE}
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+```
+
+#Merge Sample Names to Signal Intensities
+```{r}
+cell_k27me3 <- read.table("/Desktop/DATA/bigWigFiles/csvchr7.csv", header = TRUE)
+cell_k27me3_long <- gather(cell_k27me3, key = "variable", value = "value", -c(chr, start, end))
+
+#Merging term name column
+k27me3 <- read.table("/Desktop/DATA/bigWigFiles/test.txt", sep="\t", header=TRUE)
+k27me3_long <- gather(k27me3, key = "bigWig", value = "value", -chr, -start, -end)
+#Removing '.bigWig'
+k27me3_long$bigWig <- sub(".bigWig", "", k27me3_long$bigWig)
+#Importing Metadata (File ID -> bigWig manually but not needed; just adjust the dplyr code)
+metadata <- read.table("/Desktop/DATA/bigWigFiles/metadata.tsv", header = TRUE, sep = "\t")
+metadata_subset <- metadata[, c("bigWig", "Biosample.term.name")]
+#Merging using dplyr (adjust for colnames)
+k27me3_with_metadata <- left_join(k27me3_long, metadata_subset, by = c("bigWig" = "bigWig"))
+```
+
+# Save Sample Name to File
+```{r , echo=FALSE}
+write.csv(cell_k27me3_chr7, "~/P2_RMD_Files/csvchr7.csv")
+```
+
+# Plot Top 5 Cell Types 
+```{r}
+# Load the data from the CSV file
+data <- k27me3_with_metadata
+
+# Calculate the average 'H3K27me3 abundance' for each 'Biosample term.name' and get the top 5
+top_cell_types <- data %>%
+  group_by(Biosample.term.name) %>%
+  summarise(AverageAbundance = mean(value, na.rm = TRUE)) %>%
+  top_n(5, AverageAbundance) %>%
+  ungroup() %>%
+  arrange(desc(AverageAbundance))
+
+# Create a subset of the original data for only the top 5 cell types
+data_top_cell_types <- data %>%
+  filter(Biosample.term.name %in% top_cell_types$Biosample.term.name)
+
+# Create the horizontal barplot with points
+p <- ggplot(top_cell_types, aes(x = reorder(Biosample.term.name, AverageAbundance), y = AverageAbundance)) +
+  geom_bar(stat = "identity", fill = "#377EB8") +
+  geom_point(data = data_top_cell_types, aes(y = value, x = Biosample.term.name), color = "black", position = position_dodge(width = 0.8)) +
+  coord_flip() +  # Flip coordinates to make it horizontal
+  theme_minimal() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank(),
+    axis.text.x = element_text(size = 24), # Increase font size of x-axis labels
+    axis.text.y = element_text(size = 24), # Increase font size of y-axis labels
+    axis.line = element_line(color = "black")
+  ) +
+  labs(y = "", x = "")
+
+#y = "Average H3K27me3 Abundance"
+# Display the plot
+print(p)
+
+# Save the plot
+ggsave("~/P2_RMD_Files/top5_barplot.png", p, width = 12, height = 8, dpi = 450, bg = "white")
+```
+
+# Plot Bottom 5 Cell Types
+```{r , echo=FALSE}
+#data already loaded from csv
+
+# Calculate the average 'H3K27me3 abundance' for each 'Biosample term.name' and get the bottom 5
+bottom_cell_types <- data %>%
+  group_by(Biosample.term.name) %>%
+  summarise(AverageAbundance = mean(value, na.rm = TRUE)) %>%
+  top_n(-5, AverageAbundance) %>%
+  ungroup() %>%
+  arrange(AverageAbundance)
+
+# Create a subset of the original data for only the bottom 5 cell types
+data_bottom_cell_types <- data %>%
+  filter(Biosample.term.name %in% bottom_cell_types$Biosample.term.name)
+
+# Create the horizontal barplot with points
+p2 <- ggplot(bottom_cell_types, aes(x = reorder(Biosample.term.name, AverageAbundance), y = AverageAbundance)) +
+  geom_bar(stat = "identity", fill = "#FF7F00") +
+  geom_point(data = data_bottom_cell_types, aes(y = value, x = Biosample.term.name), color = "black", position = position_dodge(width = 0.8)) +
+  coord_flip() +  # Flip coordinates to make it horizontal
+  theme_minimal() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank(),
+    axis.text.x = element_text(size = 24), # Increase font size of x-axis labels
+    axis.text.y = element_text(size = 24), # Increase font size of y-axis labels
+    axis.line = element_line(color = "black")
+  ) +
+  labs(y = "", x = "")
+#y = "Average H3K27me3 Abundance"
+# Display the plot
+print(p2)
+
+# Save the plot
+ggsave("~/Paper2/P2_RMD_Files/bottom5_barplot.png", p2, width = 12, height = 8, dpi = 450, bg = "white")
+```

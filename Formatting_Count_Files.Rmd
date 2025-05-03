@@ -1,0 +1,74 @@
+---
+title: "Formatting_Count_Files"
+output: html_document
+author: "Ahmad Chahin"
+---
+
+# Load required libraries
+```{r}
+library(DESeq2)
+library(tidyr)
+library(dplyr)
+library(stringr)
+```
+
+# Read the csv file containing signal intensities
+```{r}
+count_data_diff <- read.csv("~/DQ2_Data/count_matrix.csv", header = TRUE)
+```
+
+# Adjust data into appropriate count matrix format with columns indicating samples and rows indicating location
+```{r}
+# Extract sample names from column names for both TOP5 and BOTTOM5 folders
+top5_sample_names <- gsub("chr_TOP5_", "", names(count_data_diff)[grep("^chr_TOP5_", names(count_data_diff))])
+bottom5_sample_names <- gsub("chr_BOTTOM5_", "", names(count_data_diff)[grep("^chr_BOTTOM5_", names(count_data_diff))])
+
+# Combine information from signal columns for each sample into a count matrix
+all_sample_names <- c(top5_sample_names, bottom5_sample_names)
+count_matrix <- matrix(NA, nrow = nrow(count_data_diff), ncol = length(all_sample_names))
+
+# Set row names for the count matrix
+rownames(count_matrix) <- paste(count_data_diff[[paste0("chr_TOP5_", top5_sample_names[1])]], 
+                               count_data_diff[[paste0("start_TOP5_", top5_sample_names[1])]], 
+                               count_data_diff[[paste0("end_TOP5_", top5_sample_names[1])]], sep = ":")
+
+# Fill in count matrix with signal intensity values for TOP5 samples
+for (i in seq_along(top5_sample_names)) {
+  count_matrix[, i] <- count_data_diff[[paste0("signal_TOP5_", top5_sample_names[i])]]
+}
+
+# Fill in count matrix with signal intensity values for BOTTOM5 samples
+for (i in seq_along(bottom5_sample_names)) {
+  count_matrix[, i + length(top5_sample_names)] <- count_data_diff[[paste0("signal_BOTTOM5_", bottom5_sample_names[i])]]
+}
+
+# Set column names for the count matrix
+colnames(count_matrix) <- all_sample_names
+```
+
+#Saving as csv file:
+```{r}
+write.csv(count_matrix, file = "~/Desktop/new_count.csv", row.names = TRUE)
+```
+
+# Create a dataframe indicating each group classification
+```{r}
+# Create a dataframe with sample names and corresponding groups
+sample_names <- c(top5_sample_names, bottom5_sample_names)
+group <- c(rep("TOP5", length(top5_sample_names)), rep("BOTTOM5", length(bottom5_sample_names)))
+sample_data <- data.frame(sample = sample_names, group = group)
+
+# Set row names to sample names
+rownames(sample_data) <- sample_names
+
+# Removing unnecessary column 
+sample_data$sample <- NULL
+```
+
+#Saving this metadata as csv file:
+```{r}
+write.csv(sample_data, file = "/Desktop/sample_names.csv", row.names = TRUE)
+```
+
+
+
